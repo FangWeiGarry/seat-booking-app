@@ -35,25 +35,31 @@ class SeatBookingApp {
         return this._priceMultipliers;
     }
     renderSectorsList() {
-        // get price multipliers array
-        const sectors = this.getPriceMultipliersArray()
-        // get container for sectors list (<ul>)
-        const container = document.querySelector(`#sectors-list`);
-        // clear container
-        container.innerHTML = "";
-        // populate container with existing sectors
-        sectors.forEach((sector) => {
-            const listElement = document.createElement('li');
-            const name = document.createElement('span')
-            name.textContent = sector.sector;
-            const price = document.createElement('input')
-            price.setAttribute('id', `price-${sector}`)
-            price.value = sector.priceMultiplier
-            listElement.appendChild(name);
-            listElement.appendChild(price);
-            container.appendChild(listElement);
-        })
-    }
+    const sectors = this.getPriceMultipliersArray()
+    const container = document.querySelector(`#sectors-list`);
+    container.innerHTML = "";
+    sectors.forEach((sector) => {
+        const listElement = document.createElement('li');
+        const sectorName = sector.sector;
+        const inputId = `price-${sectorName}`;
+        
+        const nameSpan = document.createElement('span');
+        nameSpan.textContent = sectorName;
+        
+        const label = document.createElement('label');
+        label.setAttribute('for', inputId);
+        label.textContent = ` multiplier: `;
+        
+        const priceInput = document.createElement('input');
+        priceInput.setAttribute('id', inputId);
+        priceInput.value = sector.priceMultiplier;
+        
+        listElement.appendChild(nameSpan);
+        listElement.appendChild(label);
+        listElement.appendChild(priceInput);
+        container.appendChild(listElement);
+    })
+}
     addService(service) {
         this._services.push(service);
     }
