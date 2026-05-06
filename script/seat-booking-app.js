@@ -138,50 +138,41 @@ class SeatBookingApp {
             })
         }
     }
-    updateOrderDetails() {
-        // get current service
-        const currentService = this.getCurrentService();
-        // get current service price
-        const servicePrice = currentService.getPrice();
-        // get price multipliers
-        const priceMultipliers = this.getPriceMultipliersArray();
-        // get reserved seats for current service
-        const reservedSeats = currentService.getReservedSeats();
-        // get and clear `order-details` container
-        const container = document.querySelector(`#order-details`);
-        container.innerHTML = '';
-        // get and clear `total-price` <span> element
-        const totalPriceContainer = document.querySelector(`#order-total-price`);
+updateOrderDetails() {
+    const currentService = this.getCurrentService();
+    if (!currentService) return;
+    const servicePrice = currentService.getPrice();
+    const priceMultipliers = this.getPriceMultipliersArray();
+    // now reservedSeats contains ID strings instead of DOM elements
+    const reservedSeatIds = currentService.getReservedSeats();
+    const container = document.querySelector(`#order-details`);
+    container.innerHTML = '';
+    const totalPriceContainer = document.querySelector(`#order-total-price`);
+    totalPriceContainer.innerHTML = '';
+    let totalPrice = 0;
+    reservedSeatIds.forEach((seatId) => {
+        // look up DOM element by ID
+        const seatElement = document.getElementById(seatId);
+        if (!seatElement) return;
+        const currentSectorId = seatElement.parentElement.parentElement.id;
+        const sectorPrice = priceMultipliers.find((element) => {
+            return element.sector === currentSectorId;
+        }).priceMultiplier
+        const seatPrice = parseFloat((servicePrice * sectorPrice).toFixed(2))
+        totalPrice += seatPrice;
+        const listItem = document.createElement(`li`)
+        const listItemId = document.createElement(`span`)
+        listItemId.textContent = seatId
+        const listItemPrice = document.createElement(`span`)
+        listItemPrice.textContent = `$${seatPrice}`
+        container.appendChild(listItem)
+        listItem.appendChild(listItemId)
+        listItem.appendChild(listItemPrice)
+        const totalPriceElement = document.createElement(`span`)
+        totalPriceElement.textContent = `Total price: $${parseFloat(totalPrice.toFixed(2))}`
         totalPriceContainer.innerHTML = '';
-        let totalPrice = 0;
-        // loop through reserved seats and render every element
-        reservedSeats.forEach((seat) => {
-            // get reserved-seat's parent's id (sector's id)
-            const currentSecotrId = seat.parentElement.parentElement.id;
-            // find price multiplier for this sector
-            const sectorPrice = priceMultipliers.find((element) => {
-                return element.sector === currentSecotrId;
-            }).priceMultiplier
-            // calculate price for this seat
-            const seatPrice = parseFloat((servicePrice * sectorPrice).toFixed(2))
-            // update total price for reserved seats
-            totalPrice += seatPrice;
-
-            // render list object for this seat
-            const listItem = document.createElement(`li`)
-            const listItemId = document.createElement(`span`)
-            listItemId.textContent = seat.id
-            const listItemPrice = document.createElement(`span`)
-            listItemPrice.textContent = `$${seatPrice}`
-            container.appendChild(listItem)
-            listItem.appendChild(listItemId)
-            listItem.appendChild(listItemPrice)
-            // render updated total price element
-            const totalPriceElement = document.createElement(`span`)
-            totalPriceElement.textContent = `Total price: $${parseFloat(totalPrice.toFixed(2))}`
-            totalPriceContainer.innerHTML = '';
-            totalPriceContainer.appendChild(totalPriceElement)
-        })
+        totalPriceContainer.appendChild(totalPriceElement)
+    })
     }
     /* disabled until there is a way of creating sectors by user
     cacheSectors() {
@@ -241,17 +232,17 @@ class Service {
         return this._seatsBooked;
     }
     bookSeats() {
-        // get reserved seats
-        const reservedSeats = this.getReservedSeats();
-        // transfer elements to array for booked seats
-        reservedSeats.forEach((seat) => {
-            this._seatsBooked.push(seat.id)
-        })
-        // clear `reserved seats` array
-        this.clearReservedSeats();
-        // update corresponding `seat` elements on the page
-        this.markBookedSeats();
-    }
+    // get reserved seats (now contains ID strings)
+    const reservedSeats = this.getReservedSeats();
+    // transfer IDs to booked seats array
+    reservedSeats.forEach((seatId) => {
+        this._seatsBooked.push(seatId)
+    })
+    // clear `reserved seats` array
+    this.clearReservedSeats();
+    // update corresponding `seat` elements on the page
+    this.markBookedSeats();
+}
     getReservedSeats() {
         return this._seatsReserved;
     }
@@ -259,11 +250,13 @@ class Service {
         this._seatsReserved.push(seat)
     }
     removeReservedSeat(seatId) {
-        const index = this._seatsReserved.findIndex((seat) => {
-            return seat === seatId
-        })
-        this._seatsReserved.splice(index, 1)
+    const index = this._seatsReserved.findIndex((id) => {
+        return id === seatId
+    });
+    if (index !== -1) {
+        this._seatsReserved.splice(index, 1);
     }
+}
     clearReservedSeats() {
         this._seatsReserved = [];
     }
@@ -463,33 +456,51 @@ seatElements.forEach((seat) => {
     })
     // toggle seat as reserved on click
     seat.addEventListener('click', (e) => {
+        // if no service exists, don't do anything
+        if (!showingRoom1.getCurrentService()) return;
         // if this seat is taken, don't do anything
         if (!seat.classList.contains(`seat--booked`)) {
             e.target.classList.toggle('seat--reserved');
             // get current service
-            const currentService = showingRoom1.getCurrentService()
-            if(seat.classList.contains(`seat--reserved`)) {
-                // save seat ID in array
-                currentService.addReservedSeat(e.target);
-                showingRoom1.updateOrderDetails()
+            const currentService = showingRoom1.getCurrentService();
+            if (seat.classList.contains(`seat--reserved`)) {
+                // save seat ID (string) in array
+                currentService.addReservedSeat(e.target.id);
+                showingRoom1.updateOrderDetails();
             } else {
                 // remove seat ID from array
                 currentService.removeReservedSeat(e.target.id);
+                showingRoom1.updateOrderDetails();
             }
-
         };
     });
 });
 
 // get `current service` dropdown element
-const dropdownElement = document.querySelector(`#services-list`);
+// UTILITY: clear all visually reserved seats
+function clearAllReservedVisuals() {
+    document.querySelectorAll('.seat--reserved').forEach(el => {
+        el.classList.remove('seat--reserved');
+    });
+    document.querySelector(`#order-details`).innerHTML = '';
+    document.querySelector(`#order-total-price`).innerHTML = '';
+}const dropdownElement = document.querySelector(`#services-list`);
 dropdownElement.addEventListener('change', (e) => {
+    // clear reserved seats of previous service (visual + data)
+    const prevService = showingRoom1.getCurrentService();
+    if (prevService) {
+        prevService.getReservedSeats().forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.classList.remove('seat--reserved');
+        });
+        prevService.clearReservedSeats();
+    }
+    // clear order details
+    document.querySelector(`#order-details`).innerHTML = '';
+    document.querySelector(`#order-total-price`).innerHTML = '';
+
     // update current service ID
     showingRoom1.setCurrentServiceId(e.target.value);
-
-    // // clear reserved seats
-    // showingRoom1.getCurrentService().clearReservedSeats();
-    
     renderBookedSeats();
     showingRoom1.renderCurrentServiceData();
 })
@@ -503,6 +514,7 @@ serviceAddBtn.addEventListener('click', (e) => {
     // create new Service instance
     const newService = new Service(inputServiceName, inputServicePrice)
 
+    clearAllReservedVisuals();
     showingRoom1.addService(newService);
     showingRoom1.cacheServices();
     showingRoom1.renderServicesList();
@@ -520,6 +532,8 @@ serviceUpdateBtn.addEventListener('click', () => {
     const inputServicePrice = document.querySelector(`#service-price`).value;
     // get current service
     const currentService = showingRoom1.getCurrentService();
+    clearAllReservedVisuals();
+    currentService.clearReservedSeats();
     currentService.setName(inputServiceName);
     currentService.setPrice(inputServicePrice);
 
@@ -544,6 +558,8 @@ serviceDeleteBtn.addEventListener('click', () => {
         return service.getId() === currentServiceId;
     })
     // remove current service from array
+    clearAllReservedVisuals();
+    showingRoom1.getCurrentService().clearReservedSeats();
     servicesArray.splice(indexToDelete, 1)
 
     showingRoom1.cacheServices();
