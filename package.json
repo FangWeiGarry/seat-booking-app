@@ -4,11 +4,48 @@
   "description": "This is a Seat Booking App implemented using vanilla JavaScript. It can be easily adjusted to be used in any project that needs to have a simple seat-reservation system.",
   "main": "seat-booking-app.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "jest",
+    "test:coverage": "jest --coverage"
+  },
+  "jest": {
+    "testEnvironment": "jsdom",
+    "collectCoverageFrom": [
+      "script/Service.js"
+    ],
+    "coverageThreshold": {
+      "global": {
+        "lines": 80,
+        "functions": 80,
+        "branches": 80,
+        "statements": 80
+      }
+    },
+    "coverageReporters": [
+      "text",
+      "lcov",
+      "html"
+    ]
   },
   "author": "Damian Zienke",
   "license": "MIT",
   "dependencies": {
     "sass": "^1.59.3"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/hnw-k/seat-booking-app.git"
+  },
+  "keywords": [],
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/hnw-k/seat-booking-app/issues"
+  },
+  "homepage": "https://github.com/hnw-k/seat-booking-app#readme",
+  "devDependencies": {
+    "@babel/core": "^7.29.0",
+    "@babel/preset-env": "^7.29.2",
+    "babel-jest": "^30.3.0",
+    "jest": "^30.3.0",
+    "jest-environment-jsdom": "^30.3.0"
   }
 }
