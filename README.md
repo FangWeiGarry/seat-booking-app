@@ -17,7 +17,7 @@ It provides methods to add sectors and services to the app, get the list of serv
 
 ## Bugs
 * reserved seats and order details list should be cleared after adding, deleting or modifying current service and after changing services
-* when localStorage is empty, everything should be blocked until a service is created and cached in localStorage
+* when localStorage is empty, everything should be blocked until a service is created and cached in localStorage — **fixed on branch `fix/bug2-empty-localstorage`** (safe `fetchServices`, disabled controls, `inert` on seat map until first service is added)
 
 ## Things to be implemented
 * **prompt user to create first service**
