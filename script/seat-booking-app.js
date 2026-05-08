@@ -74,14 +74,22 @@ class SeatBookingApp {
         // clear container
         dropdownElement.innerHTML = "";
         // populate container with existing services
-        services.forEach((service) => {
-            const optionElement = document.createElement('option');
-            optionElement.setAttribute('value', service.getId());
-            optionElement.textContent = service.getName();
-            dropdownElement.appendChild(optionElement);
-        })
-        // set initial active service
-        this.setCurrentServiceId(dropdownElement.value)
+        if (services.length === 0) {
+            const placeholder = document.createElement('option');
+            placeholder.value = '';
+            placeholder.textContent = 'Create a service with Add new first';
+            placeholder.disabled = true;
+            dropdownElement.appendChild(placeholder);
+            this.setCurrentServiceId('');
+        } else {
+            services.forEach((service) => {
+                const optionElement = document.createElement('option');
+                optionElement.setAttribute('value', service.getId());
+                optionElement.textContent = service.getName();
+                dropdownElement.appendChild(optionElement);
+            });
+            this.setCurrentServiceId(dropdownElement.value);
+        }
     }
     getCurrentServiceId() {
         return this._currentServiceId;
@@ -123,20 +131,29 @@ class SeatBookingApp {
         }
     }
     fetchServices() {
-        // fetch data from localStorage
-        const servicesJSON = JSON.parse(localStorage.getItem(`sba-services-${this.getName()}`));
-
-        if(!servicesJSON) {
-            // if there's no data, notify user
-            console.log(`Let's add some services. Use the form on the left.`)
-        } else {
-            servicesJSON.forEach((service) => {
-                // create Service instances and add to app's array
-                const serviceInstance = (new Service(service._name, service._price))
-                serviceInstance.setBookedSeatsArray(service._seatsBooked);
-                this.addService(serviceInstance)
-            })
+        const raw = localStorage.getItem(`sba-services-${this.getName()}`);
+        if (!raw) {
+            console.log(`Let's add some services. Use the form on the left.`);
+            this._currentServiceId = '';
+            return;
         }
+        let servicesJSON;
+        try {
+            servicesJSON = JSON.parse(raw);
+        } catch (e) {
+            console.warn('Invalid cached services JSON; starting empty.');
+            this._currentServiceId = '';
+            return;
+        }
+        if (!servicesJSON || !Array.isArray(servicesJSON)) {
+            this._currentServiceId = '';
+            return;
+        }
+        servicesJSON.forEach((service) => {
+            const serviceInstance = new Service(service._name, service._price);
+            serviceInstance.setBookedSeatsArray(service._seatsBooked);
+            this.addService(serviceInstance);
+        });
     }
 updateOrderDetails() {
     const currentService = this.getCurrentService();
@@ -439,6 +456,56 @@ showingRoom1.renderServicesList();
 showingRoom1.renderCurrentServiceData();
 renderBookedSeats();
 
+function updateBlockedState() {
+    const noServices = showingRoom1.getServicesArray().length === 0;
+    const current = showingRoom1.getCurrentService();
+    const hasReserved =
+        current &&
+        Array.isArray(current.getReservedSeats()) &&
+        current.getReservedSeats().length > 0;
+
+    const screeningRoom = document.querySelector('#screening-room-1');
+    const serviceList = document.querySelector('#services-list');
+    const updateBtn = document.querySelector('#service-update-btn');
+    const deleteBtn = document.querySelector('#service-delete-btn');
+    const bookBtn = document.querySelector('#book-seats-btn');
+    const sectorsSave = document.querySelector('#sectors-save-btn');
+    const sectorsPriceBtn = document.querySelector('#sectors-price-btn');
+
+    if (serviceList) {
+        serviceList.disabled = noServices;
+    }
+    if (updateBtn) {
+        updateBtn.disabled = noServices;
+    }
+    if (deleteBtn) {
+        deleteBtn.disabled = noServices;
+    }
+    if (bookBtn) {
+        bookBtn.disabled = noServices || !hasReserved;
+    }
+    if (sectorsSave) {
+        sectorsSave.disabled = noServices;
+    }
+    if (sectorsPriceBtn) {
+        sectorsPriceBtn.disabled = noServices;
+    }
+
+    document.querySelectorAll('#sectors-list input').forEach((input) => {
+        input.disabled = noServices;
+    });
+
+    if (screeningRoom) {
+        if (noServices) {
+            screeningRoom.setAttribute('inert', '');
+        } else {
+            screeningRoom.removeAttribute('inert');
+        }
+    }
+}
+
+updateBlockedState();
+
 // GET ELEMENTS FROM DOM ------------------------------------------------------
 // get all rendered seat elements
 const seatElements = document.querySelectorAll('.seat');
@@ -472,6 +539,7 @@ seatElements.forEach((seat) => {
                 currentService.removeReservedSeat(e.target.id);
                 showingRoom1.updateOrderDetails();
             }
+            updateBlockedState();
         };
     });
 });
@@ -484,7 +552,9 @@ function clearAllReservedVisuals() {
     });
     document.querySelector(`#order-details`).innerHTML = '';
     document.querySelector(`#order-total-price`).innerHTML = '';
-}const dropdownElement = document.querySelector(`#services-list`);
+}
+
+const dropdownElement = document.querySelector(`#services-list`);
 dropdownElement.addEventListener('change', (e) => {
     // clear reserved seats of previous service (visual + data)
     const prevService = showingRoom1.getCurrentService();
@@ -503,7 +573,8 @@ dropdownElement.addEventListener('change', (e) => {
     showingRoom1.setCurrentServiceId(e.target.value);
     renderBookedSeats();
     showingRoom1.renderCurrentServiceData();
-})
+    updateBlockedState();
+});
 
 // get `add new Service` button element
 const serviceAddBtn = document.querySelector(`#service-add-btn`);
@@ -520,18 +591,21 @@ serviceAddBtn.addEventListener('click', (e) => {
     showingRoom1.renderServicesList();
     showingRoom1.renderCurrentServiceData();
 
-    console.log(`"${inputServiceName}" has been successfully added`)
+    console.log(`"${inputServiceName}" has been successfully added`);
     localStorageSpace();
-})
+    updateBlockedState();
+});
 
 // get `update Service` button element
 const serviceUpdateBtn = document.querySelector(`#service-update-btn`);
 serviceUpdateBtn.addEventListener('click', () => {
+    const currentService = showingRoom1.getCurrentService();
+    if (!currentService) {
+        return;
+    }
     // get input elements
     const inputServiceName = document.querySelector(`#service-name`).value;
     const inputServicePrice = document.querySelector(`#service-price`).value;
-    // get current service
-    const currentService = showingRoom1.getCurrentService();
     clearAllReservedVisuals();
     currentService.clearReservedSeats();
     currentService.setName(inputServiceName);
@@ -540,13 +614,18 @@ serviceUpdateBtn.addEventListener('click', () => {
     showingRoom1.cacheServices();
     showingRoom1.renderCurrentServiceData();
 
-    console.log(`"${inputServiceName}" has been successfully updated`)
+    console.log(`"${inputServiceName}" has been successfully updated`);
     localStorageSpace();
-})
+    updateBlockedState();
+});
 
 // get `delete Service` button element
 const serviceDeleteBtn = document.querySelector(`#service-delete-btn`);
 serviceDeleteBtn.addEventListener('click', () => {
+    const currentSvc = showingRoom1.getCurrentService();
+    if (!currentSvc) {
+        return;
+    }
 
     // get current service name
     const inputServiceName = document.querySelector(`#service-name`).value;
@@ -556,27 +635,30 @@ serviceDeleteBtn.addEventListener('click', () => {
     const servicesArray = showingRoom1.getServicesArray();
     const indexToDelete = servicesArray.findIndex((service) => {
         return service.getId() === currentServiceId;
-    })
+    });
     // remove current service from array
     clearAllReservedVisuals();
-    showingRoom1.getCurrentService().clearReservedSeats();
+    currentSvc.clearReservedSeats();
     servicesArray.splice(indexToDelete, 1)
 
     showingRoom1.cacheServices();
     showingRoom1.renderServicesList()
     showingRoom1.renderCurrentServiceData();
 
-    console.log(`"${inputServiceName}" has been successfully removed`)
+    console.log(`"${inputServiceName}" has been successfully removed`);
     localStorageSpace();
-})
+    updateBlockedState();
+});
 
 // get `book seats` button element
 const bookSeatsBtn = document.querySelector(`#book-seats-btn`)
 bookSeatsBtn.addEventListener('click', () => {
-
-    // get current service
     const currentService = showingRoom1.getCurrentService();
+    if (!currentService) {
+        return;
+    }
 
     currentService.bookSeats();
     showingRoom1.cacheServices();
-})
+    updateBlockedState();
+});
